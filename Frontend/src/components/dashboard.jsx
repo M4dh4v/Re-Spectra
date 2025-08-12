@@ -213,13 +213,13 @@ function ProfilePage() {
 
                 <div className="mt-4 w-full space-y-2">
                   <div className="flex items-center justify-between py-1.5 border-b border-gray-100">
-  <span className={`${darkMode ? "text-gray-400" : "text-gray-600"} text-xs w-1/3`}>
-    Department
-  </span>
-  <span className={`font-medium ${darkMode ? "text-gray-200" : "text-gray-900"} text-sm w-2/3 text-right`}>
-    {profileDetails.dept || "-"}
-  </span>
-</div>
+                    <span className={`${darkMode ? "text-gray-400" : "text-gray-600"} text-xs w-1/3`}>
+                      Department
+                    </span>
+                    <span className={`font-medium ${darkMode ? "text-gray-200" : "text-gray-900"} text-sm w-2/3 text-right`}>
+                      {profileDetails.dept || "-"}
+                    </span>
+                  </div>
 
                   <div className="flex items-center justify-between py-1.5 border-b border-gray-100">
                     <span className={`${darkMode ? "text-gray-400" : "text-gray-600"} text-xs`}>Section</span>
