@@ -18,12 +18,14 @@ import AboutUs from "./AboutUs";
 import Netraqr from "./components/Netraqr";
 import Cookies from "js-cookie";
 import Register from "./components/Register";
+import { baseUrl } from "./baseurl";
 import { jwtDecode } from "jwt-decode"; // For decoding JWT tokens
 
 // Initialize Google Analytics
 ReactGA.initialize("G-8C7K643WQB");
 
 const App = () => {
+  console.log(baseUrl)
   const [token, setToken] = useState(Cookies.get("token") || null);
   const [loading, setLoading] = useState(true);
   const location = useLocation();

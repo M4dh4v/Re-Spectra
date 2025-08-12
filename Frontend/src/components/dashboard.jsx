@@ -257,37 +257,7 @@ function ProfilePage() {
                 <LinearProgressBar attendancePer={attendancePer} />
               </div>
 
-              <div className="space-y-3">
-                <h4 className={`text-xs font-medium ${darkMode ? "text-gray-400" : "text-gray-700"} mb-2`}>Recent Sessions</h4>
-                {(attendanceData?.length || 0) === 0 && (
-                  <p className={`${darkMode ? "text-gray-400" : "text-gray-600"} text-sm`}>No attendance data available.</p>
-                )}
-                {attendanceData?.slice(0, 8).map((day, index) => {
-                  // support both object and array shapes for sessions
-                  const sessions = day.sessions && !Array.isArray(day.sessions) ? Object.values(day.sessions) : day.sessions || [];
-                  return (
-                    <div key={index} className={`flex items-center ${darkMode ? "bg-gray-700" : "bg-gray-50"} rounded-lg p-2`}>
-                      <div className={`w-20 text-xs ${darkMode ? "text-gray-300" : "text-gray-600"}`}>{day.date || day.day || "-"}</div>
-                      <div className="flex gap-1.5">
-                        {sessions.map((session, idx) => (
-                          <span
-                            key={idx}
-                            className={`w-6 h-6 rounded-lg flex items-center justify-center text-xs ${
-                              parseInt(session) === 1
-                                ? "bg-green-100 text-green-600"
-                                : parseInt(session) === 0
-                                ? "bg-red-100 text-red-600"
-                                : "bg-gray-100 text-gray-600"
-                            }`}
-                          >
-                            {parseInt(session) === 1 ? "✓" : parseInt(session) === 0 ? "×" : "-"}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
+              
             </div>
           </div>
 
