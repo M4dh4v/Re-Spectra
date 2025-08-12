@@ -112,19 +112,20 @@ const UserInputPage = () => {
         id: result._id,
       });
   
-      if (response.data.success !== 1) {
+      if (response.data.Error == true) {
         // If the token is not generated, show the password prompt
         showPasswordPrompt(result);
       } else {
         // Set the token in cookies
-        Cookies.set("token", response.data.token, {
+        Cookies.set("token", response.data.access_token, {
           expires: 7,
           sameSite: "strict",
         });
         console.log("Token set in cookies:", Cookies.get("token")); // Debugging
   
         // Fetch user info and wait for it to complete
-        await fetchUserInfo(response.data.token, result._id);
+        await fetchUserInfo(response.data.access_token, result._id);
+        
   
         console.log("User info fetched, navigating to /user"); // Debugging
       }
@@ -165,12 +166,12 @@ const UserInputPage = () => {
             id: result._id,
             password: password,
           });
-          if (response.data.token) {
-            Cookies.set("token", response.data.token, {
+          if (response.data.access_token) {
+            Cookies.set("token", response.data.access_token, {
               expires: 7,
               sameSite: "strict",
             });
-            fetchUserInfo(response.data.token, result._id);
+            fetchUserInfo(response.data.access_token, result._id);
           } else {
             openModal(
               "Error",
@@ -185,35 +186,55 @@ const UserInputPage = () => {
       }
     );
   };
-  const fetchUserInfo = async (token, id) => {
-    try {
-      const response = await axios.post(
-        `${baseUrl}/api/userinfo`,
-        {},
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-        }
-      );
-  
-      if (response.data) {
-        const { rollno } = response.data;
-        // Set rollno in cookies only (localStorage removed)
-        Cookies.set("rollno", rollno, { expires: 7, sameSite: "strict" });
-        console.log("Rollno set in cookies:", Cookies.get("rollno")); // Debugging
-  
-        // Navigate to the user dashboard after successful fetch
-        navigate("/user");
-        console.log("Navigated to /user"); // Debugging
+ 
+
+  const fetchUserInfo = async (token, id=4135) => {
+  try {
+    if (!token) throw new Error('Missing token');
+    if (!id) throw new Error('Missing id');
+
+    console.log('fetchUserInfo', { token: token ? '***redacted***' : null, id });
+
+    const response = await axios.post(
+      `${baseUrl}/api/userinfo`,     // server route
+      { id:4135 },                       // body payload — server expects { id }
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        timeout: 15000,
       }
-    } catch (error) {
-      console.error("Error fetching user info:", error);
-      openModal("Error", "error", <p>Failed to fetch user information.</p>);
-      throw error; // Re-throw the error to handle it in the calling function
+    );
+
+    // server returns student object as response.data
+    if (response?.data) {
+      const { rollno } = response.data;
+
+      if (rollno) {
+        // set cookie only (no localStorage)
+        Cookies.set('rollno', rollno, { expires: 7, sameSite: 'strict' });
+        console.log('Rollno set in cookies:', Cookies.get('rollno'));
+      }
+
+      // navigate to dashboard
+      navigate('/user');
+      console.log('Navigated to /user');
+
+      // return the full student object to caller if needed
+      return response.data;
+    } else {
+      throw new Error('Empty response from server');
     }
-  };
+  } catch (error) {
+    console.error('Error fetching user info:', error?.response?.data || error.message || error);
+    openModal('Error', 'error', <p>Failed to fetch user information.</p>);
+    throw error; // allow caller to handle if they want
+  }
+};
+
+
+
   const getAvatar = (result) => {
     let icon;
     switch (searchType) {
@@ -242,9 +263,9 @@ const UserInputPage = () => {
   const getResultText = (result) => {
     switch (searchType) {
       case "name":
-        return `${result.firstname}`;
+        return `${result.name}`;
       case "hallticketno":
-        return `${result.hallticketno}`;
+        return `${result.htno}`;
       case "phone":
         return `${result.phone}`;
       case "partialPhone":

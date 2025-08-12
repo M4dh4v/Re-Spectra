@@ -46,7 +46,7 @@ app.use('/api', fetchqr);
 // app.use('/api', getSubjects);
 
 const db = process.env.CONNECTION;
-mongoose.connect(db, { useNewUrlParser: true, useUnifiedTopology: true })
+mongoose.connect(db)
   .then(() => console.log('MongoDB Connected...'))
   .catch(err => console.error('MongoDB connection error:', err));
 

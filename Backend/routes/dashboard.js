@@ -7,59 +7,32 @@ const router = express.Router();
 
 router.use(bodyParser.json());
 router.post('/profile', async (req, res) => {
-  const { method } = req.body;
   const token = req.headers.authorization && req.headers.authorization.split(' ')[1]; 
-
+  console.log(token)
   if (!token) {
     return res.status(400).json({ error: 'Token is missing' });
   }
 
   try {
-   
-    
-    const response = await axios.post('http://apps.teleuniv.in/api/netraapi.php?college=KMIT', {
-      method: method,
-      
-    }, {
+    const response = await axios.get('https://kmit-api.teleuniv.in/studentmaster/studentprofile/4135',{
       headers: {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json',
-        'Origin': 'http://kmit-netra.teleuniv.in',
-        'Referer': 'http://kmit-netra.teleuniv.in/'
       }
     });
 
     
 
-    const profileData = response.data;
-    // console.log('Received profile data:', profileData);
+    const profileData = response.data.payload.student;
 
-    if (!profileData.hallticketno) {
+    if (!profileData.htno) {
       return res.status(400).json({ error: 'Invalid response from external API' });
     }
 
 
+    let x = response.data.payload.studentimage;
 
-    try {
-      
-      const student = await StudentDetail.findOne({ hallticketno: profileData.hallticketno });
-      if (student) {
-        profileData.psflag = student.psflag;
-      }
-    } catch (dbError) {
-      console.error('Error fetching profile views from external database:', dbError);
-      return res.status(500).json({ error: 'Error fetching profile views from database' });
-    }
-
-    try {
-      
-      const imageResponse = await axios.get(profileData.picture, { responseType: 'arraybuffer' });
-      const imageBuffer = Buffer.from(imageResponse.data, 'binary');
-      profileData.picture = imageBuffer.toString('base64');
-    } catch (imageError) {
-      console.error('Error fetching or converting profile picture:', imageError);
-      return res.status(500).json({ error: 'Error fetching or converting profile picture' });
-    }
+    profileData.picture = x.split(',')[1];
 
     res.json(profileData);
   } catch (apiError) {
@@ -70,56 +43,87 @@ router.post('/profile', async (req, res) => {
 
 
 
-router.post('/userinfo',async(req,res)=>{
-  const token = req.headers.authorization && req.headers.authorization.split(' ')[1]; 
-  // console.log(token)
+router.post('/userinfo', async (req, res) => {
+  const authHeader = req.headers.authorization || '';
+  const token = authHeader.startsWith('Bearer ') ? authHeader.split(' ')[1] : null;
+  const id = req.body?.id;
+
+  if (!token) {
+    return res.status(401).json({ error: 'Authorization token missing' });
+  }
+  if (!id) {
+    return res.status(400).json({ error: 'Missing id in request body' });
+  }
+
+  const upstreamUrl = `https://kmit-api.teleuniv.in/studentmaster/studentprofile/${encodeURIComponent(id)}`;
+
   try {
-    const response = await axios.post('http://apps.teleuniv.in/api/auth/user-info.php', {}, {
+    const upstreamResp = await fetch(upstreamUrl, {
+      method: 'GET',
       headers: {
-        'Authorization': `Bearer ${token}`,
+        Authorization: `Bearer ${token}`,
         'Content-Type': 'application/json',
-        'Origin': 'http://kmit-netra.teleuniv.in',
-        'Referer': 'http://kmit-netra.teleuniv.in/'
-      }
+      },
     });
-    // console.log(response.data);
-    const userData = response.data;
-    res.json(userData);
-    // console.log(userData);
+
+    // if upstream returned non-2xx, forward status + message
+    const upstreamText = await upstreamResp.text();
+    let upstreamJson;
+    try {
+      upstreamJson = JSON.parse(upstreamText);
+    } catch (e) {
+      // upstream returned non-JSON (keep raw text)
+      upstreamJson = null;
+    }
+
+    if (!upstreamResp.ok) {
+      console.error('Upstream API error:', upstreamResp.status, upstreamText);
+      return res.status(upstreamResp.status).json({
+        error: 'Upstream API error',
+        status: upstreamResp.status,
+        details: upstreamJson || upstreamText,
+      });
+    }
+
+    // successful upstream response
+    const userData = upstreamJson?.payload?.student;
+    if (!userData) {
+      console.error('Upstream response missing payload.student:', upstreamJson);
+      return res.status(502).json({ error: 'Invalid upstream response format' });
+    }
+
+    // return student object to client
+    return res.json(userData);
   } catch (apiError) {
     console.error('Error fetching user data from back-end API:', apiError);
-    res.status(500).json({ error: 'Internal Server Error' });
-}
-
-})
+    return res.status(502).json({ error: 'Bad Gateway', details: apiError.message });
+  }
+});
 
 router.post('/attendance', async (req, res) => {
-  const { method } = req.body;
   const token = req.headers.authorization && req.headers.authorization.split(' ')[1];
   
     try {
-      
-      const response = await axios.post('http://apps.teleuniv.in/api/netraapi.php?college=KMIT', {
-        method: method,
-      }, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Origin': 'http://kmit-netra.teleuniv.in',
-          'Referer': 'http://kmit-netra.teleuniv.in/'
-        }
-      });
-  
-      // console.log(response.data);
-      const { attandance, overallattperformance } = response.data;
-      const data = attandance.dayobjects;
-      const data1 = overallattperformance.totalpercentage;
-      const data2 = attandance.twoweeksessions;
+      // console.log(token)
+
+      const response = await fetch('https://kmit-api.teleuniv.in/sanjaya/getAttendance', {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+    });
+
+      const xx = await response.json()
+
+      // console.log(xx);
+      const data = xx.payload.attendanceDetails;
+      const data1 = xx.payload.overallAttendance;
   
       
       const attendanceData = {
         dayObjects: data,
         totalPercentage: data1,
-        twoWeekSessions: data2
       };
   
       

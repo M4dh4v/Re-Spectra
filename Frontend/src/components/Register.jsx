@@ -1,133 +1,93 @@
 import React, { useState } from 'react';
 import axios from 'axios';
 import Cookies from 'js-cookie';
-import { UserPlus, Loader2, Phone } from 'lucide-react';
+import { UserPlus, Loader2, Phone, Lock } from 'lucide-react';
 import { baseUrl } from '../baseurl';
 import { useNavigate } from 'react-router-dom';
 import Navbar from './Navbar';
-import Modal from './Modal'; // Import the updated Modal component
-import { useDarkMode } from './DarkModeContext'; // Import the dark mode hook
+import Modal from './Modal'; // keep Modal for generic messages
+import { useDarkMode } from './DarkModeContext';
 
-function Register() {
-  const { darkMode } = useDarkMode(); // Access dark mode state
+export default function Register() {
+  const { darkMode } = useDarkMode();
   const [loading, setLoading] = useState(false);
   const [phoneNumber, setPhoneNumber] = useState('');
+  const [password, setPassword] = useState('');
   const navigate = useNavigate();
 
-  // Modal state
+  // Modal state (keeps using your existing Modal for messages)
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalTitle, setModalTitle] = useState('');
-  const [modalType, setModalType] = useState('info'); // 'info', 'success', 'error'
+  const [modalType, setModalType] = useState('info');
   const [modalContent, setModalContent] = useState(null);
-  const [modalAction, setModalAction] = useState(null); // For confirm actions
 
-  // Open modal function
-  const openModal = (title, type, content, action = null) => {
+  const openModal = (title, type, content) => {
     setModalTitle(title);
     setModalType(type);
     setModalContent(content);
-    setModalAction(() => action);
     setIsModalOpen(true);
   };
 
-  // Close modal function
   const closeModal = () => {
     setIsModalOpen(false);
-    setModalAction(null);
+    setModalContent(null);
   };
 
-  const handleResultClick = async (result) => {
-    try {
-      const response = await axios.post(`${baseUrl}/api/def-token-register`, {
-        phnumber: result,
-      });
-      console.log(result);
-      if (response.status === 201) {
-        openModal(
-          'Already exists!',
-          'warning',
-          <p>{response.data.message}</p>
-        );
-      } else {
-        openModal(
-          'Success!',
-          'success',
-          <p>Search for {response.data.name}</p>
-        );
-      }
-    } catch (error) {
-      if (error.response?.status === 500) {
-        showPasswordPrompt(result);
-      } else {
-        console.error('Error logging in:', error);
-        openModal(
-          'Error',
-          'error',
-          <p>Failed to log in. Please try again.</p>
-        );
-      }
-    }
-  };
-
-  const showPasswordPrompt = (result) => {
-    openModal(
-      'Enter KMIT Netra Password',
-      'info',
-      <div>
-        <input
-          type="password"
-          id="password"
-          className={`w-full p-2 rounded border ${
-            darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300'
-          }`}
-          placeholder="Password"
-          autoComplete="off"
-        />
-      </div>,
-      async () => {
-        const password = document.getElementById('password').value;
-        if (!password) {
-          openModal('Error', 'error', <p>Password is required.</p>);
-          return;
-        }
-        try {
-          const response = await axios.post(`${baseUrl}/api/get-token-register`, {
-            phnumber: result,
-            password: password,
-          });
-          if (response.data.name) {
-            openModal(
-              'Success!',
-              'success',
-              <p>Search for {response.data.name}</p>
-            );
-          } else {
-            openModal(
-              'Error',
-              'error',
-              <p>Invalid token. Please try again.</p>
-            );
-          }
-        } catch (error) {
-          console.error('Error logging in:', error);
-          openModal(
-            'Error',
-            'error',
-            <p>Login failed. Please try again.</p>
-          );
-        }
-      }
-    );
-  };
-
+  // New: unified submit handler that sends phone+password (stacked inputs)
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    // basic validation
+    if (!phoneNumber) {
+      openModal('Validation error', 'error', <p>Phone number is required.</p>);
+      return;
+    }
+
+    if (!password) {
+      openModal('Validation error', 'error', <p>Password is required.</p>);
+      return;
+    }
+
     setLoading(true);
+
     try {
-      await handleResultClick(phoneNumber);
-      setPhoneNumber('');
+      const payload = {
+        phnumber: phoneNumber,
+        password: password,
+      };
+
+      const response = await axios.post(`${baseUrl}/api/def-token-register`, payload);
+
+      // adjust logic depending on your API convention — here we follow your previous behaviour
+      if (response.status === 201) {
+        // 201 might mean "already exists" in your backend (kept from original code)
+        openModal('Already exists!', 'warning', <p>{response.data?.message || 'This account already exists.'}</p>);
+      } else {
+        // success path
+        openModal('Success!', 'success', <p>Welcome {response.data?.name || ''}</p>);
+
+        // optionally store token or navigate — uncomment if your backend returns a token
+        if (response.data?.token) {
+          Cookies.set('token', response.data.token);
+        }
+
+        // navigate to search or dashboard if desired
+        if (response.data?.name) {
+          // small delay so user can read modal (optional)
+          setTimeout(() => navigate('/search'), 700);
+        }
+      }
     } catch (error) {
-      console.error('Error submitting feedback:', error);
+      // if your backend sometimes returns 500 to indicate "need different endpoint" you can handle here
+      const status = error?.response?.status;
+      if (status === 500) {
+        openModal('Server error', 'error', <p>Server returned an error (500). Try again later.</p>);
+      } else if (status === 400 || status === 401) {
+        openModal('Login failed', 'error', <p>{error?.response?.data?.message || 'Invalid credentials.'}</p>);
+      } else {
+        openModal('Error', 'error', <p>Failed to register. Please try again.</p>);
+      }
+      console.error('Registration error:', error);
     } finally {
       setLoading(false);
     }
@@ -138,7 +98,6 @@ function Register() {
       <Navbar />
 
       <div className="w-full max-w-md space-y-8">
-        {/* Logo and Title */}
         <div className="text-center">
           <div className="mx-auto h-12 w-12 bg-blue-500 rounded-full flex items-center justify-center">
             <UserPlus className="h-6 w-6 text-white" />
@@ -151,45 +110,56 @@ function Register() {
           </p>
         </div>
 
-        {/* Form */}
         <form onSubmit={handleSubmit} className="mt-8 space-y-6">
-          <div className="space-y-2">
-            <label
-              htmlFor="phone"
-              className={`block text-sm font-medium ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}
-            >
-              Student Phone Number (Netra)
-            </label>
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                <Phone className="h-5 w-5 text-gray-400" />
+          <div className="space-y-4">
+            {/* Phone input */}
+            <div>
+              <label htmlFor="phone" className={`block text-sm font-medium ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                Student Phone Number (Netra)
+              </label>
+              <div className="relative mt-1">
+                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                  <Phone className="h-5 w-5 text-gray-400" />
+                </div>
+                <input
+                  id="phone"
+                  type="tel"
+                  value={phoneNumber}
+                  onChange={(e) => setPhoneNumber(e.target.value)}
+                  className={`block w-full pl-11 pr-4 py-3 ${darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300'} border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200`}
+                  placeholder="Enter your phone number"
+                  required
+                />
               </div>
-              <input
-                id="phone"
-                type="tel"
-                value={phoneNumber}
-                onChange={(e) => setPhoneNumber(e.target.value)}
-                className={`block w-full pl-11 pr-4 py-3 ${
-                  darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300'
-                } border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200`}
-                placeholder="Enter your phone number"
-                required
-              />
+            </div>
+
+            {/* Password input (stacked) */}
+            <div>
+              <label htmlFor="password" className={`block text-sm font-medium ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                Password
+              </label>
+              <div className="relative mt-1">
+                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                  <Lock className="h-5 w-5 text-gray-400" />
+                </div>
+                <input
+                  id="password"
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className={`block w-full pl-11 pr-4 py-3 ${darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300'} border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200`}
+                  placeholder="Enter your password"
+                  autoComplete="current-password"
+                  required
+                />
+              </div>
             </div>
           </div>
 
           <button
             type="submit"
             disabled={loading}
-            className={`
-              relative w-full flex justify-center py-3 px-4 rounded-lg text-sm font-semibold text-white
-              transition-all duration-200 ease-in-out
-              ${loading
-                ? 'bg-blue-400 cursor-not-allowed'
-                : 'bg-blue-500 hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500'
-              }
-            `}
-          >
+            className={`relative w-full flex justify-center py-3 px-4 rounded-lg text-sm font-semibold text-white transition-all duration-200 ease-in-out ${loading ? 'bg-blue-400 cursor-not-allowed' : 'bg-blue-500 hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500'}`}>
             <span className="absolute inset-y-0 left-0 flex items-center pl-3">
               {loading ? (
                 <Loader2 className="h-5 w-5 animate-spin text-blue-200" />
@@ -207,48 +177,17 @@ function Register() {
           </div>
 
           <div className="text-center">
-            <a
-              href="/search"
-              className={`text-sm font-medium ${
-                darkMode ? 'text-blue-400 hover:text-blue-300' : 'text-blue-600 hover:text-blue-500'
-              } transition-colors duration-200`}
-            >
+            <a href="/search" className={`text-sm font-medium ${darkMode ? 'text-blue-400 hover:text-blue-300' : 'text-blue-600 hover:text-blue-500'} transition-colors duration-200`}>
               Check Details
             </a>
           </div>
         </form>
       </div>
 
-      {/* Modal Component */}
-      <Modal
-        isOpen={isModalOpen}
-        onClose={closeModal}
-        title={modalTitle}
-        type={modalType}
-      >
+      {/* Modal Component for messages */}
+      <Modal isOpen={isModalOpen} onClose={closeModal} title={modalTitle} type={modalType}>
         {modalContent}
-        {modalAction && (
-          <div className="mt-4 flex justify-end space-x-2">
-            <button
-              onClick={closeModal}
-              className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={() => {
-                modalAction();
-                closeModal();
-              }}
-              className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
-            >
-              Confirm
-            </button>
-          </div>
-        )}
       </Modal>
     </div>
   );
 }
-
-export default Register;
