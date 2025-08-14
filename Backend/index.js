@@ -14,6 +14,7 @@ const internalexam = require("./routes/internalres");
 const externalexam = require("./routes/externalres");
 const netraqr = require("./routes/gethallticketnumfromnetraid");
 const fetchqr = require("./routes/fetchqr");
+const serverless = require("serverless-http");
 // const getSubjects = require('./routes/getSemSubjects');
 
 const app = express();
@@ -51,6 +52,6 @@ mongoose
   .then(() => console.log("MongoDB Connected..."))
   .catch((err) => console.error("MongoDB connection error:", err));
 
-app.listen(5000, () => console.log(`Server started on port 5000`));
+// app.listen(5000, () => console.log(`Server started on port 5000`));
 
-module.exports = app;
+module.exports = serverless(app);
