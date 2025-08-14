@@ -47,11 +47,12 @@ app.use("/api", fetchqr);
 // app.use('/api', getSubjects);
 
 const db = process.env.CONNECTION;
+const PORT = process.env.PORT || 5000;
 mongoose
   .connect(db)
   .then(() => console.log("MongoDB Connected..."))
   .catch((err) => console.error("MongoDB connection error:", err));
 
-// app.listen(5000, () => console.log(`Server started on port 5000`));
+app.listen(PORT, () => console.log(`Server started on port ${PORT}`));
 
 module.exports = serverless(app);
